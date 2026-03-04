@@ -1,73 +1,38 @@
-# React + TypeScript + Vite
+# OJEET Study
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A distraction-free, local-first YouTube study PWA designed for students.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Distraction-Free Player**: Watch YouTube videos without recommendations, comments, or sidebars.
+- **Local Library**: Organize your study material with support for both individual videos and full playlists.
+- **Smart Search**: Real-time search across video titles and channel names, with auto-expanding playlists.
+- **Analytics & Tracking**: High-resolution study time tracking that stays purely local to your device.
+- **Cross-App Sync**: One-click "Sync to Tracker" to share your analytics with [OJEE Tracker](https://ojeet-tracker.vercel.app).
+- **Offline Capable**: Works as a Progressive Web App (PWA) with full dark mode support.
 
-## React Compiler
+## 🛠️ Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: Vite + React + TypeScript
+- **State/Storage**: IndexedDB (via Dexie.js)
+- **UI**: Chakra UI + Lucide Icons
+- **Backend**: Vercel Serverless Functions (for YouTube API proxying)
+- **Drag & Drop**: @dnd-kit
 
-## Expanding the ESLint configuration
+## 📦 Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1.  **Clone the repository**
+2.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
+3.  **Setup environment variables**:
+    Create a `.env` file with your `YOUTUBE_API_KEY`.
+4.  **Run locally**:
+    ```bash
+    pnpm dev
+    ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🔒 Privacy
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+OJEET Study is local-first. Your library and study history are stored in your browser's IndexedDB. No tracking data is sent to a server unless you explicitly choose to export your analytics.
