@@ -1,0 +1,343 @@
+<role>
+You are a senior full-stack engineer with deep expertise in
+Vite, React, TypeScript strict mode, IndexedDB, PWA architecture,
+and YouTube Data API v3.
+</role>
+
+<project>
+  <name>OJEET-STUDY</name>
+  <type>Public SaaS — Distraction-Free YouTube Study App</type>
+  <mission>
+    Enable students to study YouTube content without algorithmic distractions:
+    no recommendations, no comments, no autoplay chaining, no feed exposure.
+    Local-first, offline-capable, installable PWA. Deployed on Vercel.
+  </mission>
+</project>
+
+<constraints>
+  <non_negotiables>
+    - Framework: Vite + React (latest stable), SPA with React Router v6
+    - Deployment: Vercel — use vercel.json for SPA fallback routing
+    - UI: Chakra UI — strict white/black minimal theme, no glassmorphism,
+      no gradients, no decorative animations
+    - Icons: lucide-react exclusively — no other icon libraries or emoji
+    - Package manager: PNPM exclusively
+    - Language: TypeScript strict mode throughout
+    - Storage: IndexedDB via Dexie.js + localStorage for config flags only
+    - No Firebase, Supabase, or any external database in MVP
+    - Backend: Vercel Serverless Functions (/api/*) for YouTube API proxying only
+    - Simplicity first — flat component structure, minimal abstraction layers,
+      co-locate logic with its UI when it won't be reused
+  </non_negotiables>
+</constraints>
+
+<deliverables>
+
+  <!-- DELIVERABLE 1 -->
+  <deliverable id="1" title="System Architecture">
+    Produce a concise, production-grade high-level architecture diagram
+    (as ASCII or structured text). Include:
+    - Data flow: YouTube API → Vercel Serverless Functions → Dexie.js → UI layer
+    - Session tracking pipeline
+    - Service worker layer
+    - PWA install flow
+    - Vercel routing (SPA fallback via vercel.json)
+    Annotate each layer with its responsibility boundary.
+    No generic descriptions — be precise about what each layer owns.
+  </deliverable>
+
+  <!-- DELIVERABLE 2 -->
+  <deliverable id="2" title="Folder Structure">
+    Output a simple, flat folder tree with one-line purpose annotations per
+    file or directory. Avoid deep nesting — prefer co-location over separation.
+    Must include:
+
+    /src
+      /pages          → Route-level page components (one file per route)
+      /components     → Shared, reusable UI primitives only
+      /features       → Self-contained feature modules (library, player,
+                        analytics, session) — each a single file or small folder
+      /hooks          → Custom React hooks shared across features
+      /db             → Dexie schema + typed repository functions in one file
+      /services       → YouTube API client (calls /api/* routes, never googleapis directly)
+      /utils          → Date helpers, CSV serializer, duration formatter
+      /pwa            → Service worker registration + install prompt logic
+
+    /api              → Vercel Serverless Functions (YouTube API proxy)
+    /public           → PWA manifest, icons, favicon
+
+    Enforce these rules explicitly:
+    - /api/* is the sole layer that touches the YouTube API key
+    - /components never imports from /features
+    - /services calls /api/* routes — never googleapis.com directly
+    - Prefer a single file per feature unless it exceeds ~300 lines
+  </deliverable>
+
+  <!-- DELIVERABLE 3 -->
+  <deliverable id="3" title="IndexedDB Schema">
+    Design a typed Dexie.js schema. Provide the full TypeScript interface
+    definitions and Dexie table declarations for:
+
+    Table: videos
+      - id (YouTube video ID, primary key)
+      - title, channelName, thumbnailUrl, durationSeconds
+      - addedAt (timestamp), sourceType ('manual' | 'playlist')
+      - playlistId (nullable FK)
+      - sortOrder (integer for drag-and-drop)
+
+    Table: playlists
+      - id (YouTube playlist ID, primary key)
+      - title, channelName, lastSyncedAt
+      - autoSync (boolean), syncIntervalMinutes
+
+    Table: studySessions
+      - id (uuid, primary key)
+      - videoId (FK → videos)
+      - startTime, endTime (ISO timestamps)
+      - focusedDurationSeconds (net focused time only)
+      - playbackRate
+
+    Table: sessionEvents (granular event log)
+      - id, sessionId (FK), eventType
+        ('play'|'pause'|'focus_lost'|'focus_gained'|'rate_change')
+      - timestamp, playbackRate
+
+    Include Dexie version declaration, index definitions, and migration hooks.
+    All types must be strictly typed — no `any`.
+    Place the entire schema + repository helper functions in /src/db/db.ts.
+  </deliverable>
+
+  <!-- DELIVERABLE 4 -->
+  <deliverable id="4" title="YouTube API Integration Strategy">
+    Detail the complete integration layer. Include:
+
+    URL Parsing:
+    - Regex or URL API patterns for all YouTube URL formats:
+      youtu.be/ID, watch?v=ID, playlist?list=ID, embed/ID,
+      shorts/ID, /live/ID
+
+    Vercel Serverless Functions (/api/*):
+    - /api/youtube/video.ts   → videos.list (snippet + contentDetails)
+    - /api/youtube/playlist.ts → playlistItems.list, paginated with nextPageToken
+    - /api/youtube/sync.ts    → lightweight sync check using etag or publishedAt
+    - API key read from process.env.YOUTUBE_API_KEY (set in Vercel dashboard)
+    - Each function validates input, calls Google API, returns only needed fields
+
+    Client (/src/services/youtube.ts):
+    - Calls /api/youtube/* — never googleapis.com
+    - Duration parsing: ISO 8601 PT#H#M#S → seconds
+    - Caches responses in Dexie to minimize API calls
+
+    Auto-Sync:
+    - setInterval + Page Visibility API (pause sync when tab is hidden)
+    - Compare etag or latest publishedAt to detect new items
+
+    Error Handling:
+    - 403 quota exceeded → user-facing message + exponential backoff
+    - Invalid URL → client-side validation before any API call
+    - Network failure → serve cached metadata from Dexie
+  </deliverable>
+
+  <!-- DELIVERABLE 5 -->
+  <deliverable id="5" title="Session Tracking Algorithm">
+    Write the precise state machine logic (not pseudocode — actual TypeScript
+    logic flow) for the session tracker hook: useSessionTracker(videoId).
+
+    The tracker must:
+
+    ACTIVE conditions (ALL must be true simultaneously):
+      □ document.visibilityState === 'visible'
+      □ document.hasFocus() === true
+      □ YouTube player state === YT.PlayerState.PLAYING
+      □ Not buffering (YT.PlayerState.BUFFERING === false)
+
+    PAUSE tracking when ANY condition fails.
+    RESUME tracking automatically when all conditions restore.
+
+    Playback rate adjustment:
+      focusedSeconds += wallClockElapsed * playbackRate
+
+    On session end (unmount or video change):
+      - Write final StudySession record to Dexie
+      - Append all sessionEvents log entries
+
+    Provide the complete hook implementation including:
+    - useEffect dependency management
+    - Interval-based accumulator (100ms tick)
+    - Cleanup on unmount
+    - YouTube Player event bindings (onStateChange, onPlaybackRateChange)
+    - Page Visibility API listener
+    - Window focus/blur listeners
+  </deliverable>
+
+  <!-- DELIVERABLE 6 -->
+  <deliverable id="6" title="Service Worker Strategy">
+    Define the complete PWA service worker strategy:
+
+    Cache Strategy:
+    - App shell (HTML, CSS, JS bundles) → Cache First
+    - Static assets (fonts, icons) → Cache First, long TTL
+    - /api/* responses → Network First, fallback to Dexie-cached data
+    - YouTube thumbnails → Stale While Revalidate
+    - Video streams → Network Only (never cache)
+
+    Implementation:
+    - Use vite-plugin-pwa (Workbox under the hood)
+    - Precache manifest generated at build time
+    - Runtime caching rules per route pattern
+
+    PWA Manifest (in /public/manifest.json):
+    - name, short_name, display: standalone
+    - Icons: 192×192, 512×512 maskable
+    - background_color: #ffffff, theme_color: #000000
+    - start_url: /
+
+    Vercel SPA Routing:
+    - vercel.json must include a rewrite rule: { "source": "/(.*)", "destination": "/index.html" }
+      so deep links work correctly after PWA install
+
+    Install Prompt:
+    - Intercept beforeinstallprompt
+    - Defer and surface in UI as dismissable banner using lucide-react Download icon
+    - Track install state in localStorage
+
+    Lighthouse PWA Checklist:
+    - HTTPS enforced (automatic on Vercel)
+    - start_url responds offline
+    - Icons provided
+    - Manifest linked in <head>
+  </deliverable>
+
+  <!-- DELIVERABLE 7 -->
+  <deliverable id="7" title="Drag-and-Drop Implementation">
+    Specify the drag-and-drop reordering strategy for the video library list.
+
+    Requirements:
+    - Library: @dnd-kit/core + @dnd-kit/sortable (not react-beautiful-dnd)
+    - Keyboard accessible (arrow keys to reorder)
+    - Persist new sortOrder to Dexie on drop
+    - Optimistic UI update before Dexie write
+    - Handle touch events for mobile
+    - Use lucide-react GripVertical icon as the drag handle
+
+    Provide:
+    - SortableVideoList component structure
+    - useSortable hook integration
+    - onDragEnd handler with Dexie persistence logic
+    - Accessibility aria-live announcements on reorder
+  </deliverable>
+
+  <!-- DELIVERABLE 8 -->
+  <deliverable id="8" title="Heatmap Calendar Implementation">
+    Implement a GitHub-style study heatmap with zero external charting libs.
+
+    Data shape:
+      { date: 'YYYY-MM-DD', totalMinutes: number }[]
+
+    Rendering:
+    - Pure CSS Grid: 53 columns (weeks) × 7 rows (days)
+    - Color scale: 4 intensity levels based on study duration thresholds
+      (0, 1–30, 31–90, 91–180, 180+ minutes)
+    - Strict white/black palette with opacity variants
+    - Tooltip on hover: date + total study time
+    - Month labels above grid
+
+    Data computation:
+    - Query Dexie studySessions grouped by date
+    - Aggregate focusedDurationSeconds → totalMinutes per day
+    - Memoize with useMemo, recompute only when Dexie data changes
+
+    Provide the complete React component with inline Chakra UI styling.
+    Keep it in a single file under /src/features/analytics/.
+  </deliverable>
+
+  <!-- DELIVERABLE 9 -->
+  <deliverable id="9" title="CSV Export Logic">
+    Implement the CSV export utility at /src/utils/exportCsv.ts.
+
+    Export schema (column order):
+      date, videoId, videoTitle, channelName,
+      startTime, endTime, focusedMinutes, playbackRate
+
+    Requirements:
+    - Query all studySessions from Dexie, join videoId → videos table
+    - Sort by startTime ascending
+    - Escape commas and quotes per RFC 4180
+    - Generate Blob → createObjectURL → auto-trigger download
+    - Filename: focustube-sessions-YYYY-MM-DD.csv
+    - No external CSV library — implement the serializer natively
+    - Provide TypeScript function signature:
+      exportSessionsToCSV(): Promise<void>
+  </deliverable>
+
+  <!-- DELIVERABLE 10 -->
+  <deliverable id="10" title="PNPM Setup Commands">
+    Provide the exact, copy-pasteable terminal sequence to scaffold
+    the project from zero including:
+    - pnpm create vite with React + TypeScript template
+    - vercel.json for SPA fallback routing
+    - All dependency installs (production + dev) in a single grouped block,
+      including: chakra-ui, dexie, react-router-dom, @dnd-kit/core,
+      @dnd-kit/sortable, lucide-react, vite-plugin-pwa, uuid
+    - tsconfig.json strict mode additions
+    - ESLint config for strict React + TypeScript rules
+    - Environment variable setup (.env.local template with VITE_ prefix note)
+    - vite.config.ts with vite-plugin-pwa configuration
+    No explanatory prose — commands only, with inline comments.
+  </deliverable>
+
+  <!-- DELIVERABLE 11 -->
+  <deliverable id="11" title="Deployment Architecture for Vercel">
+    Recommend a deployment strategy optimized for Vercel hosting a Vite SPA:
+    - vercel.json: SPA rewrite rules + serverless function configuration
+    - Environment variables: YOUTUBE_API_KEY set per environment in Vercel dashboard
+      (Production / Preview / Development separation)
+    - Vercel Preview Deployments for PR-level testing
+    - CDN: Vercel Edge Network serves /dist static assets automatically
+    - YouTube API key rotation: update in Vercel dashboard → redeploy (no code change)
+    - Rate limit monitoring via Vercel Analytics + Function logs
+    - Custom domain + automatic HTTPS via Vercel (required for PWA service worker)
+    Be specific — name actual Vercel features, not generic cloud concepts.
+  </deliverable>
+
+  <!-- DELIVERABLE 12 -->
+  <deliverable id="12" title="API Key Security Architecture">
+    Address the YouTube Data API key exposure problem definitively.
+
+    Required solution:
+    - API key lives in Vercel environment variables (server-only, never prefixed with VITE_)
+    - All YouTube API calls proxied through Vercel Serverless Functions (/api/youtube/*)
+    - Client code calls /api/youtube/* — googleapis.com never appears in the browser
+      network tab
+    - Each /api function:
+      □ Validates YouTube ID/URL format before forwarding to Google
+      □ Returns only the fields the client needs (no raw passthrough)
+      □ Basic per-IP rate limiting via in-memory Map or Vercel KV if budget allows
+    - Content Security Policy headers set in vercel.json headers config
+    - .env.local is gitignored; .env.example committed with placeholder values
+
+    Provide the Vercel Serverless Function handler pattern (/api/youtube/video.ts)
+    with input validation, API call, field filtering, and error handling applied.
+    Use standard Web APIs (Request/Response) compatible with Vercel's Edge or
+    Node.js runtime.
+  </deliverable>
+
+</deliverables>
+
+<output_format>
+  Respond to each deliverable in sequence using this structure:
+
+  ## [N]. [Title]
+  [Content — code, schema, algorithm, or commands as appropriate]
+
+  Rules:
+  - All TypeScript must be complete and compilable — no placeholder comments
+    like `// implement this`
+  - Inline code comments only where non-obvious
+  - No motivational framing ("This is a great approach because...")
+  - No restating of requirements before answering them
+  - Where implementation choices exist, make the decision and justify it
+    in one sentence maximum
+  - Prefer simple, readable code over clever abstractions
+  - Treat this as a real production codebase handoff
+</output_format>
