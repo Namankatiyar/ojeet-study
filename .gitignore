@@ -10,8 +10,9 @@ lerna-debug.log*
 .ai_workflow
 
 prompts
+.ai_workflow/
 
-node_modules
+node_modules/
 dist
 dist-ssr
 *.local
