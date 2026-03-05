@@ -8,6 +8,7 @@ declare global {
             Player: new (
                 elementId: string,
                 config: {
+                    host?: string;
                     videoId: string;
                     width: string;
                     height: string;
@@ -86,6 +87,7 @@ export function PlayerEmbed({
             containerRef.current.appendChild(el);
 
             playerRef.current = new window.YT.Player(el.id, {
+                host: 'https://www.youtube-nocookie.com',
                 videoId,
                 width: '100%',
                 height: '100%',

@@ -1,7 +1,6 @@
 {
-  "name": "temp-scaffold",
-  "private": true,
-  "version": "0.0.0",
+  "name": "ojeet-study",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

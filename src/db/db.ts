@@ -2,6 +2,8 @@ import Dexie, { type Table } from 'dexie';
 
 // ─── Type Definitions ────────────────────────────────────────────────
 
+export type VideoTag = 'physics' | 'chemistry' | 'maths' | 'custom' | null;
+
 export interface Video {
     id: string; // YouTube video ID (primary key)
     title: string;
@@ -12,6 +14,7 @@ export interface Video {
     sourceType: 'manual' | 'playlist';
     playlistId: string | null;
     sortOrder: number;
+    tag: VideoTag;
 }
 
 export interface Playlist {
@@ -73,6 +76,19 @@ class OjeetStudyDB extends Dexie {
             studySessions: 'id, videoId, startTime',
             sessionEvents: '++id, sessionId, eventType, timestamp',
         });
+
+        this.version(3).stores({
+            videos: 'id, playlistId, sortOrder, addedAt',
+            playlists: 'id, sortOrder',
+            studySessions: 'id, videoId, startTime',
+            sessionEvents: '++id, sessionId, eventType, timestamp',
+        }).upgrade(tx => {
+            return tx.table('videos').toCollection().modify(video => {
+                if (video.tag === undefined) {
+                    video.tag = null;
+                }
+            });
+        });
     }
 }
 
@@ -90,6 +106,10 @@ export async function getVideos(): Promise<Video[]> {
 
 export async function getVideoById(id: string): Promise<Video | undefined> {
     return db.videos.get(id);
+}
+
+export async function updateVideoTag(id: string, tag: VideoTag): Promise<void> {
+    await db.videos.update(id, { tag });
 }
 
 export async function deleteVideo(id: string): Promise<void> {

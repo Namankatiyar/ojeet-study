@@ -13,6 +13,10 @@ export default defineConfig({
       manifest: false, // using public/manifest.json
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Prevent the service worker from intercepting cross-origin requests
+        // (e.g. YouTube thumbnail images) with the navigation fallback.
+        navigateFallbackDenylist: [/^\/api/, /^https?:\/\//],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/i\.ytimg\.com\/.*/i,

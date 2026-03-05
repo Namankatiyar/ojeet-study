@@ -127,6 +127,7 @@ export async function addVideoByUrl(url: string): Promise<Video> {
         sourceType: 'manual',
         playlistId: null,
         sortOrder: nextSort,
+        tag: null,
     };
 
     await db.videos.put(video);
@@ -175,6 +176,7 @@ export async function importPlaylist(url: string): Promise<Playlist> {
                 sourceType: 'playlist',
                 playlistId: data.id,
                 sortOrder: nextSort++,
+                tag: null,
             });
         }
     }
