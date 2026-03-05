@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import {
     DndContext,
     closestCenter,
@@ -38,10 +38,12 @@ interface SortableLibraryListProps {
 function SortableItemWrapper({
     item,
     searchQuery,
+    isDragDisabled,
     onUpdate,
 }: {
     item: LibraryItem;
     searchQuery: string;
+    isDragDisabled: boolean;
     onUpdate: () => void;
 }) {
     const navigate = useNavigate();
@@ -56,10 +58,14 @@ function SortableItemWrapper({
         isDragging,
     } = useSortable({ id });
 
+    // BUG 4 FIX: Merge isDragging opacity and watched opacity into a single value
+    // to prevent inline style overriding Chakra's opacity prop on watched videos
+    const resolvedOpacity = isDragging ? 0.5 : (item.type === 'video' && item.data.watched ? 0.45 : 1);
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: resolvedOpacity,
         zIndex: isDragging ? 2 : 1,
         position: 'relative' as const,
     };
@@ -78,7 +84,8 @@ function SortableItemWrapper({
                     searchQuery={searchQuery}
                     onUpdate={onUpdate}
                     dragAttributes={attributes}
-                    dragListeners={listeners}
+                    // BUG 2 FIX: Don't pass drag listeners when search is active
+                    dragListeners={isDragDisabled ? undefined : listeners}
                 />
             </Box>
         );
@@ -98,14 +105,24 @@ function SortableItemWrapper({
             display="flex"
             alignItems="center"
             gap={3}
-            opacity={video.watched ? 0.45 : 1}
+            // BUG 4 FIX: opacity removed from here — now handled in style above
             _hover={{ bg: 'var(--bg-tertiary)', borderColor: 'var(--border-hover)' }}
             transition="all 0.15s"
             role="listitem"
             aria-label={video.title}
         >
-            <Box {...attributes} {...listeners} cursor="grab" flexShrink={0}>
-                <GripVertical size={18} color="var(--text-muted)" />
+            {/* BUG 2 FIX: Disable listeners and show visual cue when search is active */}
+            <Box
+                {...attributes}
+                {...(isDragDisabled ? {} : listeners)}
+                cursor={isDragDisabled ? 'not-allowed' : 'grab'}
+                flexShrink={0}
+                title={isDragDisabled ? 'Clear search to reorder' : undefined}
+            >
+                <GripVertical
+                    size={18}
+                    color={isDragDisabled ? 'var(--border-color)' : 'var(--text-muted)'}
+                />
             </Box>
 
             <Image
@@ -193,25 +210,61 @@ export function SortableLibraryList({ items, searchQuery, onUpdate }: SortableLi
         }),
     );
 
+    // BUG 2 FIX: Disable drag-and-drop when a search query is active to prevent
+    // reordering a filtered subset from corrupting hidden items' sort orders
+    const isDragDisabled = searchQuery.length > 0;
+
+    // VISUAL GLITCH FIX: Maintain local optimistic state so the UI re-orders
+    // immediately on drop without waiting for the async DB writes + onUpdate cycle.
+    const [optimisticItems, setOptimisticItems] = useState<LibraryItem[]>(items);
+
+    // Keep optimisticItems in sync whenever the parent pushes a fresh items prop
+    // (e.g. after onUpdate resolves, or favorite/watched toggles from outside)
+    useEffect(() => {
+        setOptimisticItems(items);
+    }, [items]);
+
+    // BUG 3 FIX: Keep a ref to the latest optimisticItems so handleDragEnd never
+    // reads a stale closure value if a re-render fires mid-async execution
+    const itemsRef = useRef(optimisticItems);
+    useEffect(() => {
+        itemsRef.current = optimisticItems;
+    }, [optimisticItems]);
+
     const handleDragEnd = useCallback(
         async (event: DragEndEvent) => {
+            // BUG 2 FIX: Bail out entirely if drag is disabled (search active)
+            if (isDragDisabled) return;
+
             const { active, over } = event;
             if (!over || active.id === over.id) return;
 
-            const oldIndex = items.findIndex((i) => `${i.type}-${i.data.id}` === active.id);
-            const newIndex = items.findIndex((i) => `${i.type}-${i.data.id}` === over.id);
+            // BUG 3 FIX: Read from ref instead of closure to get the freshest items
+            const currentItems = itemsRef.current;
+
+            const oldIndex = currentItems.findIndex((i) => `${i.type}-${i.data.id}` === active.id);
+            const newIndex = currentItems.findIndex((i) => `${i.type}-${i.data.id}` === over.id);
             if (oldIndex === -1 || newIndex === -1) return;
 
-            const reordered = arrayMove(items, oldIndex, newIndex);
+            const reordered = arrayMove(currentItems, oldIndex, newIndex);
+
+            // VISUAL GLITCH FIX: Apply new order to local state immediately so the
+            // list snaps to the correct position right on drop, before DB writes finish
+            setOptimisticItems(reordered);
 
             const videoUpdates: { id: string; sortOrder: number }[] = [];
             const playlistUpdates: { id: string; sortOrder: number }[] = [];
 
+            // BUG 1 FIX: Assign sortOrder from the unified reordered position so that
+            // cross-type ordering is consistent (highest sortOrder = newest/first).
+            // Previously, videos and playlists each got independent index sequences
+            // (both starting at 0), making cross-type comparison in LibraryPage wrong.
             reordered.forEach((item, index) => {
+                const update = { id: item.data.id, sortOrder: reordered.length - index };
                 if (item.type === 'video') {
-                    videoUpdates.push({ id: item.data.id, sortOrder: index });
+                    videoUpdates.push(update);
                 } else {
-                    playlistUpdates.push({ id: item.data.id, sortOrder: index });
+                    playlistUpdates.push(update);
                 }
             });
 
@@ -222,7 +275,7 @@ export function SortableLibraryList({ items, searchQuery, onUpdate }: SortableLi
 
             onUpdate();
         },
-        [items, onUpdate],
+        [isDragDisabled, onUpdate],
     );
 
     return (
@@ -232,7 +285,7 @@ export function SortableLibraryList({ items, searchQuery, onUpdate }: SortableLi
             onDragEnd={(e) => void handleDragEnd(e)}
         >
             <SortableContext
-                items={items.map((i) => `${i.type}-${i.data.id}`)}
+                items={optimisticItems.map((i) => `${i.type}-${i.data.id}`)}
                 strategy={verticalListSortingStrategy}
             >
                 <Box
@@ -243,20 +296,21 @@ export function SortableLibraryList({ items, searchQuery, onUpdate }: SortableLi
                     aria-label="Video library"
                     aria-live="polite"
                 >
-                    {items.map((item) => (
+                    {optimisticItems.map((item) => (
                         <SortableItemWrapper
                             key={`${item.type}-${item.data.id}`}
                             item={item}
                             searchQuery={searchQuery}
+                            isDragDisabled={isDragDisabled}
                             onUpdate={onUpdate}
                         />
                     ))}
-                    {items.length === 0 && !searchQuery && (
+                    {optimisticItems.length === 0 && !searchQuery && (
                         <Text color="var(--text-muted)" textAlign="center" py={8}>
                             No videos yet. Add a YouTube URL above to get started.
                         </Text>
                     )}
-                    {items.length === 0 && searchQuery && (
+                    {optimisticItems.length === 0 && searchQuery && (
                         <Text color="var(--text-muted)" textAlign="center" py={8}>
                             No videos or playlists match "{searchQuery}".
                         </Text>
