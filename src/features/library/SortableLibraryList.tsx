@@ -76,11 +76,18 @@ function SortableItemWrapper({
     }, [onUpdate]);
 
     if (item.type === 'playlist') {
+        // PLAYLIST VIDEO ORDER FIX: sort ascending by sortOrder so the first video
+        // added to the playlist appears first and the last added appears last,
+        // independent of the outer library's newest-first (descending) order.
+        const sortedPlaylistVideos = [...item.playlistVideos].sort(
+            (a, b) => a.sortOrder - b.sortOrder,
+        );
+
         return (
             <Box ref={setNodeRef} style={style}>
                 <PlaylistGroup
                     playlist={item.data}
-                    playlistVideos={item.playlistVideos}
+                    playlistVideos={sortedPlaylistVideos}
                     searchQuery={searchQuery}
                     onUpdate={onUpdate}
                     dragAttributes={attributes}

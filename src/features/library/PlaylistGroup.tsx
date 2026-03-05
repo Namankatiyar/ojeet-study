@@ -50,10 +50,12 @@ export function PlaylistGroup({
                 v.channelName.toLowerCase().includes(searchQuery),
         )
         : [...playlistVideos]).sort((a, b) => {
+            // Watched videos always sink to the bottom
             const aWatched = a.watched ? 1 : 0;
             const bWatched = b.watched ? 1 : 0;
             if (aWatched !== bWatched) return aWatched - bWatched;
-            return b.sortOrder - a.sortOrder;
+            // Within same watched tier: ascending sortOrder = first added on top
+            return a.sortOrder - b.sortOrder;
         });
 
     const videoCount = playlistVideos.length;
