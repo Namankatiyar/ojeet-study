@@ -65,6 +65,7 @@ export function LibraryPage() {
     );
 
     // Merge standalone videos and playlists into a single ordered list
+    // Favorites pinned to top, then newest first (descending sortOrder)
     const orderedItems = useMemo(() => {
         const items: LibraryItem[] = [];
         for (const v of filteredStandalone) {
@@ -78,7 +79,19 @@ export function LibraryPage() {
                 playlistVideos: videos.filter((v) => v.playlistId === p.id)
             });
         }
-        items.sort((a, b) => a.sortOrder - b.sortOrder);
+        items.sort((a, b) => {
+            // Tier: 0 = watched (bottom), 1 = normal, 2 = favorite (top)
+            const tier = (item: LibraryItem) => {
+                if (item.data.watched) return 0;
+                if (item.data.favorite) return 2;
+                return 1;
+            };
+            const aTier = tier(a);
+            const bTier = tier(b);
+            if (aTier !== bTier) return bTier - aTier;
+            // Within same tier, newest first (higher sortOrder = newer)
+            return b.sortOrder - a.sortOrder;
+        });
         return items;
     }, [filteredStandalone, filteredPlaylists, videos]);
 

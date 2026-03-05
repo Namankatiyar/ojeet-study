@@ -15,6 +15,9 @@ export interface Video {
     playlistId: string | null;
     sortOrder: number;
     tag: VideoTag;
+    favorite: boolean;
+    watched: boolean;
+    customFolderId?: string | null;
 }
 
 export interface Playlist {
@@ -26,6 +29,19 @@ export interface Playlist {
     autoSync: boolean;
     syncIntervalMinutes: number;
     sortOrder: number;
+    favorite: boolean;
+    watched: boolean;
+    customFolderId?: string | null;
+}
+
+export interface CustomFolder {
+    id: string; // uuid
+    title: string;
+    thumbnailUrl: string; // Custom header image
+    createdAt: string; // ISO timestamp
+    sortOrder: number;
+    favorite: boolean;
+    watched: boolean;
 }
 
 export interface StudySession {
@@ -57,6 +73,7 @@ export interface SessionEvent {
 class OjeetStudyDB extends Dexie {
     videos!: Table<Video, string>;
     playlists!: Table<Playlist, string>;
+    customFolders!: Table<CustomFolder, string>;
     studySessions!: Table<StudySession, string>;
     sessionEvents!: Table<SessionEvent, number>;
 
@@ -89,6 +106,49 @@ class OjeetStudyDB extends Dexie {
                 }
             });
         });
+
+        this.version(4).stores({
+            videos: 'id, playlistId, sortOrder, addedAt',
+            playlists: 'id, sortOrder',
+            studySessions: 'id, videoId, startTime',
+            sessionEvents: '++id, sessionId, eventType, timestamp',
+        }).upgrade(async tx => {
+            await tx.table('videos').toCollection().modify(video => {
+                if (video.favorite === undefined) video.favorite = false;
+            });
+            await tx.table('playlists').toCollection().modify(playlist => {
+                if (playlist.favorite === undefined) playlist.favorite = false;
+            });
+        });
+
+        this.version(5).stores({
+            videos: 'id, playlistId, sortOrder, addedAt',
+            playlists: 'id, sortOrder',
+            studySessions: 'id, videoId, startTime',
+            sessionEvents: '++id, sessionId, eventType, timestamp',
+        }).upgrade(async tx => {
+            await tx.table('videos').toCollection().modify(video => {
+                if (video.watched === undefined) video.watched = false;
+            });
+            await tx.table('playlists').toCollection().modify(playlist => {
+                if (playlist.watched === undefined) playlist.watched = false;
+            });
+        });
+
+        this.version(6).stores({
+            videos: 'id, playlistId, customFolderId, sortOrder, addedAt',
+            playlists: 'id, customFolderId, sortOrder',
+            customFolders: 'id, sortOrder',
+            studySessions: 'id, videoId, startTime',
+            sessionEvents: '++id, sessionId, eventType, timestamp',
+        }).upgrade(async tx => {
+            await tx.table('videos').toCollection().modify(video => {
+                if (video.customFolderId === undefined) video.customFolderId = null;
+            });
+            await tx.table('playlists').toCollection().modify(playlist => {
+                if (playlist.customFolderId === undefined) playlist.customFolderId = null;
+            });
+        });
     }
 }
 
@@ -110,6 +170,38 @@ export async function getVideoById(id: string): Promise<Video | undefined> {
 
 export async function updateVideoTag(id: string, tag: VideoTag): Promise<void> {
     await db.videos.update(id, { tag });
+}
+
+export async function toggleVideoFavorite(id: string): Promise<boolean> {
+    const video = await db.videos.get(id);
+    if (!video) return false;
+    const newFav = !video.favorite;
+    await db.videos.update(id, { favorite: newFav });
+    return newFav;
+}
+
+export async function togglePlaylistFavorite(id: string): Promise<boolean> {
+    const playlist = await db.playlists.get(id);
+    if (!playlist) return false;
+    const newFav = !playlist.favorite;
+    await db.playlists.update(id, { favorite: newFav });
+    return newFav;
+}
+
+export async function toggleVideoWatched(id: string): Promise<boolean> {
+    const video = await db.videos.get(id);
+    if (!video) return false;
+    const newVal = !video.watched;
+    await db.videos.update(id, { watched: newVal });
+    return newVal;
+}
+
+export async function togglePlaylistWatched(id: string): Promise<boolean> {
+    const playlist = await db.playlists.get(id);
+    if (!playlist) return false;
+    const newVal = !playlist.watched;
+    await db.playlists.update(id, { watched: newVal });
+    return newVal;
 }
 
 export async function deleteVideo(id: string): Promise<void> {
@@ -176,6 +268,71 @@ export async function deletePlaylistWithVideos(id: string): Promise<void> {
         await db.videos.where('playlistId').equals(id).delete();
         await db.playlists.delete(id);
     });
+}
+
+// ─── Custom Folder Helpers ──────────────────────────────────────────
+
+export async function addCustomFolder(folder: CustomFolder): Promise<void> {
+    await db.customFolders.put(folder);
+}
+
+export async function getCustomFolders(): Promise<CustomFolder[]> {
+    return db.customFolders.orderBy('sortOrder').toArray();
+}
+
+export async function getCustomFolderById(id: string): Promise<CustomFolder | undefined> {
+    return db.customFolders.get(id);
+}
+
+export async function updateCustomFolder(id: string, updates: Partial<CustomFolder>): Promise<void> {
+    await db.customFolders.update(id, updates);
+}
+
+export async function deleteCustomFolder(id: string): Promise<void> {
+    // When deleting a folder, we remove the customFolderId from its children rather than deleting the children
+    await db.transaction('rw', [db.customFolders, db.videos, db.playlists], async () => {
+        await db.videos.where('customFolderId').equals(id).modify({ customFolderId: null });
+        await db.playlists.where('customFolderId').equals(id).modify({ customFolderId: null });
+        await db.customFolders.delete(id);
+    });
+}
+
+export async function toggleCustomFolderFavorite(id: string): Promise<boolean> {
+    const folder = await db.customFolders.get(id);
+    if (!folder) return false;
+    const newFav = !folder.favorite;
+    await db.customFolders.update(id, { favorite: newFav });
+    return newFav;
+}
+
+export async function toggleCustomFolderWatched(id: string): Promise<boolean> {
+    const folder = await db.customFolders.get(id);
+    if (!folder) return false;
+    const newVal = !folder.watched;
+    await db.customFolders.update(id, { watched: newVal });
+    return newVal;
+}
+
+export async function updateCustomFolderSortOrders(
+    updates: { id: string; sortOrder: number }[],
+): Promise<void> {
+    await db.transaction('rw', db.customFolders, async () => {
+        for (const { id, sortOrder } of updates) {
+            await db.customFolders.update(id, { sortOrder });
+        }
+    });
+}
+
+export async function updateItemFolder(
+    type: 'video' | 'playlist',
+    id: string,
+    customFolderId: string | null
+): Promise<void> {
+    if (type === 'video') {
+        await db.videos.update(id, { customFolderId });
+    } else {
+        await db.playlists.update(id, { customFolderId });
+    }
 }
 
 export async function addStudySession(session: StudySession): Promise<void> {

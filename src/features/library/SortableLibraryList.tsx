@@ -18,10 +18,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Box, Text, Image, IconButton, Flex } from '@chakra-ui/react';
-import { GripVertical, Trash2, Play } from 'lucide-react';
+import { GripVertical, Trash2, Play, Star, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Video, Playlist } from '../../db/db';
-import { updateVideoSortOrders, updatePlaylistSortOrders, deleteVideo } from '../../db/db';
+import { updateVideoSortOrders, updatePlaylistSortOrders, deleteVideo, toggleVideoFavorite, toggleVideoWatched } from '../../db/db';
 import { formatDuration } from '../../utils/duration';
 import { PlaylistGroup } from './PlaylistGroup';
 
@@ -98,6 +98,7 @@ function SortableItemWrapper({
             display="flex"
             alignItems="center"
             gap={3}
+            opacity={video.watched ? 0.45 : 1}
             _hover={{ bg: 'var(--bg-tertiary)', borderColor: 'var(--border-hover)' }}
             transition="all 0.15s"
             role="listitem"
@@ -132,6 +133,32 @@ function SortableItemWrapper({
             </Box>
 
             <Flex gap={1} flexShrink={0}>
+                <IconButton
+                    aria-label={video.favorite ? 'Unpin from favorites' : 'Pin to favorites'}
+                    size="sm"
+                    variant="ghost"
+                    color={video.favorite ? '#facc15' : 'var(--text-muted)'}
+                    _hover={{ bg: 'rgba(250,204,21,0.1)', color: '#facc15' }}
+                    onClick={async () => {
+                        await toggleVideoFavorite(video.id);
+                        onUpdate();
+                    }}
+                >
+                    <Star size={16} fill={video.favorite ? '#facc15' : 'none'} />
+                </IconButton>
+                <IconButton
+                    aria-label={video.watched ? 'Mark as unwatched' : 'Mark as watched'}
+                    size="sm"
+                    variant="ghost"
+                    color={video.watched ? '#22c55e' : 'var(--text-muted)'}
+                    _hover={{ bg: 'rgba(34,197,94,0.1)', color: '#22c55e' }}
+                    onClick={async () => {
+                        await toggleVideoWatched(video.id);
+                        onUpdate();
+                    }}
+                >
+                    <CheckCircle size={16} fill={video.watched ? '#22c55e' : 'none'} stroke={video.watched ? 'var(--bg-secondary)' : 'currentColor'} />
+                </IconButton>
                 <IconButton
                     aria-label="Play video"
                     size="sm"

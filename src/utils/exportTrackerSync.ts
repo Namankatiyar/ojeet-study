@@ -7,7 +7,7 @@ export interface OjeetSyncPayload {
         title: string;
         durationSeconds: number;
         date: string;
-        tag: string | null;  // 'physics' | 'chemistry' | 'maths' | 'custom' | null
+        subject: string | null;  // 'physics' | 'chemistry' | 'maths' | 'custom' | null
         type: 'custom';      // All imported sessions from OJEET-STUDY are typed as 'custom'
     }>;
 }
@@ -41,7 +41,7 @@ export async function performTrackerSync() {
             title: videoInfo?.title || s.videoId,
             durationSeconds: s.focusedDurationSeconds,
             date: s.startTime.slice(0, 10),
-            tag: videoInfo?.tag ?? null,
+            subject: videoInfo?.tag ?? null,
             type: 'custom' as const,
         };
     });

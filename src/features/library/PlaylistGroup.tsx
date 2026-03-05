@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { Box, Text, Image, IconButton, Flex } from '@chakra-ui/react';
-import { ChevronDown, ChevronRight, Trash2, Play, ListVideo, GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, Play, ListVideo, GripVertical, Star, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Playlist, Video } from '../../db/db';
-import { deletePlaylistWithVideos } from '../../db/db';
+import { deletePlaylistWithVideos, togglePlaylistFavorite, togglePlaylistWatched, toggleVideoWatched } from '../../db/db';
 import { formatDuration } from '../../utils/duration';
 
 interface PlaylistGroupProps {
@@ -43,13 +43,18 @@ export function PlaylistGroup({
         onUpdate();
     }, [playlist.id, onUpdate]);
 
-    const filteredVideos = searchQuery
+    const filteredVideos = (searchQuery
         ? playlistVideos.filter(
             (v) =>
                 v.title.toLowerCase().includes(searchQuery) ||
                 v.channelName.toLowerCase().includes(searchQuery),
         )
-        : playlistVideos;
+        : [...playlistVideos]).sort((a, b) => {
+            const aWatched = a.watched ? 1 : 0;
+            const bWatched = b.watched ? 1 : 0;
+            if (aWatched !== bWatched) return aWatched - bWatched;
+            return b.sortOrder - a.sortOrder;
+        });
 
     const videoCount = playlistVideos.length;
 
@@ -60,6 +65,8 @@ export function PlaylistGroup({
             bg="var(--bg-secondary)"
             borderRadius="md"
             overflow="hidden"
+            opacity={playlist.watched ? 0.45 : 1}
+            transition="opacity 0.15s"
         >
             {/* Playlist header — always visible */}
             <Flex
@@ -128,6 +135,36 @@ export function PlaylistGroup({
 
                 <Flex gap={1} flexShrink={0} align="center">
                     <IconButton
+                        aria-label={playlist.favorite ? 'Unpin from favorites' : 'Pin to favorites'}
+                        size="sm"
+                        variant="ghost"
+                        color={playlist.favorite ? '#facc15' : 'var(--text-muted)'}
+                        _hover={{ bg: 'rgba(250,204,21,0.1)', color: '#facc15' }}
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            await togglePlaylistFavorite(playlist.id);
+                            onUpdate();
+                        }}
+                    >
+                        <Star size={16} fill={playlist.favorite ? '#facc15' : 'none'} />
+                    </IconButton>
+
+                    <IconButton
+                        aria-label={playlist.watched ? 'Mark as unwatched' : 'Mark as watched'}
+                        size="sm"
+                        variant="ghost"
+                        color={playlist.watched ? '#22c55e' : 'var(--text-muted)'}
+                        _hover={{ bg: 'rgba(34,197,94,0.1)', color: '#22c55e' }}
+                        onClick={async (e) => {
+                            e.stopPropagation();
+                            await togglePlaylistWatched(playlist.id);
+                            onUpdate();
+                        }}
+                    >
+                        <CheckCircle size={16} fill={playlist.watched ? '#22c55e' : 'none'} stroke={playlist.watched ? 'var(--bg-secondary)' : 'currentColor'} />
+                    </IconButton>
+
+                    <IconButton
                         aria-label={expanded ? "Collapse playlist" : "Expand playlist"}
                         size="sm"
                         variant="ghost"
@@ -178,8 +215,9 @@ export function PlaylistGroup({
                                 py={2.5}
                                 pl={10}
                                 cursor="pointer"
+                                opacity={video.watched ? 0.45 : 1}
                                 _hover={{ bg: 'var(--bg-tertiary)' }}
-                                transition="background 0.12s"
+                                transition="all 0.12s"
                                 onClick={() => navigate(`/watch/${video.id}`)}
                                 borderBottomWidth="1px"
                                 borderColor="var(--border-color)"
@@ -203,19 +241,35 @@ export function PlaylistGroup({
                                         {video.durationSeconds > 0 && ` · ${formatDuration(video.durationSeconds)}`}
                                     </Text>
                                 </Box>
-                                <IconButton
-                                    aria-label="Play video"
-                                    size="sm"
-                                    variant="ghost"
-                                    color="var(--text-secondary)"
-                                    _hover={{ bg: 'var(--bg-hover)', color: 'var(--text-primary)' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(`/watch/${video.id}`);
-                                    }}
-                                >
-                                    <Play size={14} />
-                                </IconButton>
+                                <Flex gap={1} flexShrink={0}>
+                                    <IconButton
+                                        aria-label={video.watched ? 'Mark as unwatched' : 'Mark as watched'}
+                                        size="sm"
+                                        variant="ghost"
+                                        color={video.watched ? '#22c55e' : 'var(--text-muted)'}
+                                        _hover={{ bg: 'rgba(34,197,94,0.1)', color: '#22c55e' }}
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            await toggleVideoWatched(video.id);
+                                            onUpdate();
+                                        }}
+                                    >
+                                        <CheckCircle size={14} fill={video.watched ? '#22c55e' : 'none'} stroke={video.watched ? 'var(--bg-primary)' : 'currentColor'} />
+                                    </IconButton>
+                                    <IconButton
+                                        aria-label="Play video"
+                                        size="sm"
+                                        variant="ghost"
+                                        color="var(--text-secondary)"
+                                        _hover={{ bg: 'var(--bg-hover)', color: 'var(--text-primary)' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/watch/${video.id}`);
+                                        }}
+                                    >
+                                        <Play size={14} />
+                                    </IconButton>
+                                </Flex>
                             </Flex>
                         ))
                     )}

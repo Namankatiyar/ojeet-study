@@ -128,6 +128,8 @@ export async function addVideoByUrl(url: string): Promise<Video> {
         playlistId: null,
         sortOrder: nextSort,
         tag: null,
+        favorite: false,
+        watched: false,
     };
 
     await db.videos.put(video);
@@ -159,6 +161,8 @@ export async function importPlaylist(url: string): Promise<Playlist> {
         autoSync: false,
         syncIntervalMinutes: 60,
         sortOrder: nextSort++,
+        favorite: false,
+        watched: false,
     };
 
     await db.playlists.put(playlist);
@@ -177,6 +181,8 @@ export async function importPlaylist(url: string): Promise<Playlist> {
                 playlistId: data.id,
                 sortOrder: nextSort++,
                 tag: null,
+                favorite: false,
+                watched: false,
             });
         }
     }
