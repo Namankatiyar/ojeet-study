@@ -8,14 +8,16 @@ import {
     DialogFooter,
     DialogTitle,
 } from '../components/ui/dialog';
-import { BarChart3, Download, Clock, SendToBack, AlertCircle } from 'lucide-react';
+import { BarChart3, Download, Clock, RefreshCcw, AlertCircle } from 'lucide-react';
 import { getDailyStudyMinutes, getStudySessions, getVideos, type StudySession, type Video } from '../db/db';
 import { StudyHeatmap } from '../features/analytics/StudyHeatmap';
 import { exportSessionsToCSV } from '../utils/exportCsv';
-import { performTrackerSync } from '../utils/exportTrackerSync';
+import { useAuthSession } from '../hooks/useAuthSession';
+import { flushVideoLogsNow, queueVideoLogsFromStudyHistory } from '../services/videoLogSync';
 import { formatDurationHuman } from '../utils/duration';
 
 export function AnalyticsPage() {
+    const { user, isConfigured } = useAuthSession();
     const [dailyData, setDailyData] = useState<{ date: string; totalMinutes: number }[]>([]);
     const [sessions, setSessions] = useState<StudySession[]>([]);
     const [videoMap, setVideoMap] = useState<Map<string, Video>>(new Map());
@@ -69,15 +71,17 @@ export function AnalyticsPage() {
                         color="var(--bg-primary)"
                         _hover={{ bg: 'var(--accent-hover)' }}
                         onClick={async () => {
-                            const hasData = await performTrackerSync();
-                            if (!hasData) {
+                            await queueVideoLogsFromStudyHistory();
+                            const result = await flushVideoLogsNow();
+                            if (!result.ok) {
                                 setIsSyncDialogOpen(true);
                             }
                         }}
+                        disabled={!isConfigured || !user}
                         px={4}
                         gap={1.5}
                     >
-                        <SendToBack size={16} />
+                        <RefreshCcw size={16} />
                         Sync to Tracker
                     </Button>
                     <Button
@@ -111,13 +115,13 @@ export function AnalyticsPage() {
                         <DialogTitle>
                             <Flex align="center" gap={2} color="var(--text-primary)">
                                 <AlertCircle size={20} color="var(--text-secondary)" />
-                                <Text fontWeight="600" fontSize="lg">No New Data</Text>
+                                <Text fontWeight="600" fontSize="lg">Sync Failed</Text>
                             </Flex>
                         </DialogTitle>
                     </DialogHeader>
                     <DialogBody pb={6}>
                         <Text color="var(--text-secondary)" fontSize="sm" lineHeight="1.6">
-                            All your recent study sessions have already been synced. There is no new data to export to the Tracker since your last sync!
+                            Sync failed. Confirm you are signed in and your Supabase environment variables are correct, then retry.
                         </Text>
                     </DialogBody>
                     <DialogFooter>

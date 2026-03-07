@@ -4,6 +4,7 @@ import { Box, Heading, Text, Flex, Badge } from '@chakra-ui/react';
 import { ArrowLeft, Clock, FlaskConical, Atom, Pi, Tag } from 'lucide-react';
 import {
     getVideoById,
+    getSessionsByVideoId,
     updateVideoLastPosition,
     updateVideoTag,
     type Video,
@@ -11,6 +12,9 @@ import {
 } from '../db/db';
 import { PlayerEmbed, type YouTubePlayer } from '../features/player/PlayerEmbed';
 import { useSessionTracker } from '../hooks/useSessionTracker';
+import { queueVideoWatchEntry } from '../services/videoLogSync';
+import { isSubjectTag } from '../services/videoLogTypes';
+import { today } from '../utils/date';
 import { formatDuration } from '../utils/duration';
 
 const TAG_OPTIONS: { value: NonNullable<VideoTag>; label: string; icon: typeof Atom }[] = [
@@ -36,6 +40,7 @@ export function PlayerPage() {
     const [video, setVideo] = useState<Video | null>(null);
     const [loading, setLoading] = useState(true);
     const [displaySeconds, setDisplaySeconds] = useState(0);
+    const [todayBaselineSeconds, setTodayBaselineSeconds] = useState(0);
     const [activeTag, setActiveTag] = useState<VideoTag>(null);
     const playerRef = useRef<YouTubePlayer | null>(null);
     const lastSavedPositionRef = useRef(0);
@@ -65,11 +70,19 @@ export function PlayerPage() {
 
     useEffect(() => {
         if (!videoId) return;
-        void getVideoById(videoId).then((v) => {
-            setVideo(v ?? null);
-            setActiveTag(v?.tag ?? null);
-            setLoading(false);
-        });
+        void Promise.all([getVideoById(videoId), getSessionsByVideoId(videoId)]).then(
+            ([v, sessions]) => {
+                const todayKey = today();
+                const baseline = sessions
+                    .filter((session) => session.startTime.slice(0, 10) === todayKey)
+                    .reduce((sum, session) => sum + session.focusedDurationSeconds, 0);
+
+                setVideo(v ?? null);
+                setActiveTag(v?.tag ?? null);
+                setTodayBaselineSeconds(Math.max(0, Math.floor(baseline)));
+                setLoading(false);
+            },
+        );
     }, [videoId]);
 
     const saveCurrentPosition = useCallback(async () => {
@@ -138,6 +151,30 @@ export function PlayerPage() {
             void saveCurrentPosition();
         };
     }, [videoId, saveCurrentPosition]);
+
+    useEffect(() => {
+        if (!videoId || !video || !isSubjectTag(activeTag)) return;
+
+        const pushLog = () => {
+            const focusedSeconds = Math.round(getFocusedSeconds());
+            const watchedSeconds = Math.max(0, todayBaselineSeconds + focusedSeconds);
+            queueVideoWatchEntry({
+                video_id: videoId,
+                video_name: video.title,
+                subject: activeTag,
+                watched_seconds: watchedSeconds,
+                watched_date: today(),
+            });
+        };
+
+        const intervalId = window.setInterval(pushLog, 5000);
+        pushLog();
+
+        return () => {
+            clearInterval(intervalId);
+            pushLog();
+        };
+    }, [videoId, video, activeTag, todayBaselineSeconds, getFocusedSeconds]);
 
     if (!videoId) {
         return (
