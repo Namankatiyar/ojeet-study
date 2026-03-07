@@ -28,6 +28,9 @@ interface YouTubePlayer {
     destroy(): void;
     getPlayerState(): number;
     getPlaybackRate(): number;
+    getCurrentTime(): number;
+    getDuration(): number;
+    seekTo(seconds: number, allowSeekAhead?: boolean): void;
 }
 
 interface PlayerEmbedProps {

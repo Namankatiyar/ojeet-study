@@ -2,7 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { Box, Heading, Text, Flex, Badge } from '@chakra-ui/react';
 import { ArrowLeft, Clock, FlaskConical, Atom, Pi, Tag } from 'lucide-react';
-import { getVideoById, updateVideoTag, type Video, type VideoTag } from '../db/db';
+import {
+    getVideoById,
+    updateVideoLastPosition,
+    updateVideoTag,
+    type Video,
+    type VideoTag,
+} from '../db/db';
 import { PlayerEmbed, type YouTubePlayer } from '../features/player/PlayerEmbed';
 import { useSessionTracker } from '../hooks/useSessionTracker';
 import { formatDuration } from '../utils/duration';
@@ -21,6 +27,10 @@ const TAG_COLORS: Record<string, string> = {
     custom: '#8b5cf6',
 };
 
+const PLAYER_STATE_ENDED = 0;
+const RESUME_SAVE_INTERVAL_MS = 5000;
+const VIDEO_END_RESET_THRESHOLD_SECONDS = 2;
+
 export function PlayerPage() {
     const { videoId } = useParams<{ videoId: string }>();
     const [video, setVideo] = useState<Video | null>(null);
@@ -28,11 +38,19 @@ export function PlayerPage() {
     const [displaySeconds, setDisplaySeconds] = useState(0);
     const [activeTag, setActiveTag] = useState<VideoTag>(null);
     const playerRef = useRef<YouTubePlayer | null>(null);
+    const lastSavedPositionRef = useRef(0);
 
     const { onPlaybackRateChange, getFocusedSeconds, isActive } = useSessionTracker(
         videoId ?? null,
         playerRef,
     );
+
+    const getSafeResumePosition = useCallback((position: number | undefined, duration?: number) => {
+        const resume = Math.max(0, Math.floor(position ?? 0));
+        if (!duration || duration <= 0) return resume;
+        if (resume >= duration - VIDEO_END_RESET_THRESHOLD_SECONDS) return 0;
+        return resume;
+    }, []);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -40,6 +58,10 @@ export function PlayerPage() {
         }, 1000);
         return () => clearInterval(interval);
     }, [getFocusedSeconds]);
+
+    useEffect(() => {
+        lastSavedPositionRef.current = 0;
+    }, [videoId]);
 
     useEffect(() => {
         if (!videoId) return;
@@ -50,6 +72,19 @@ export function PlayerPage() {
         });
     }, [videoId]);
 
+    const saveCurrentPosition = useCallback(async () => {
+        const player = playerRef.current;
+        if (!videoId || !player) return;
+
+        const currentTime = Math.floor(player.getCurrentTime?.() ?? 0);
+        const duration = Math.floor(player.getDuration?.() ?? 0);
+        const resumeTime = getSafeResumePosition(currentTime, duration);
+
+        if (resumeTime === lastSavedPositionRef.current) return;
+        lastSavedPositionRef.current = resumeTime;
+        await updateVideoLastPosition(videoId, resumeTime);
+    }, [videoId, getSafeResumePosition]);
+
     const handleTagClick = useCallback(async (tag: NonNullable<VideoTag>) => {
         if (!videoId) return;
         const newTag = activeTag === tag ? null : tag;
@@ -59,7 +94,24 @@ export function PlayerPage() {
 
     const handlePlayerReady = useCallback((player: YouTubePlayer) => {
         playerRef.current = player;
-    }, []);
+
+        const duration = Math.floor(player.getDuration?.() ?? 0);
+        const resumeTime = getSafeResumePosition(video?.lastPositionSeconds, duration);
+        if (resumeTime > 0) {
+            player.seekTo(resumeTime, true);
+        }
+        lastSavedPositionRef.current = resumeTime;
+    }, [video?.lastPositionSeconds, getSafeResumePosition]);
+
+    const handleStateChange = useCallback((state: number) => {
+        if (!videoId) return;
+        if (state === PLAYER_STATE_ENDED) {
+            void updateVideoLastPosition(videoId, 0);
+            lastSavedPositionRef.current = 0;
+            return;
+        }
+        void saveCurrentPosition();
+    }, [saveCurrentPosition, videoId]);
 
     const handlePlaybackRateChange = useCallback(
         (rate: number) => {
@@ -67,6 +119,25 @@ export function PlayerPage() {
         },
         [onPlaybackRateChange],
     );
+
+    useEffect(() => {
+        if (!videoId) return;
+
+        const intervalId = window.setInterval(() => {
+            void saveCurrentPosition();
+        }, RESUME_SAVE_INTERVAL_MS);
+
+        const handleBeforeUnload = () => {
+            void saveCurrentPosition();
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            void saveCurrentPosition();
+        };
+    }, [videoId, saveCurrentPosition]);
 
     if (!videoId) {
         return (
@@ -95,6 +166,7 @@ export function PlayerPage() {
             <PlayerEmbed
                 videoId={videoId}
                 onPlayerReady={handlePlayerReady}
+                onStateChange={handleStateChange}
                 onPlaybackRateChange={handlePlaybackRateChange}
             />
 

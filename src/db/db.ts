@@ -17,6 +17,7 @@ export interface Video {
     tag: VideoTag;
     favorite: boolean;
     watched: boolean;
+    lastPositionSeconds?: number;
     customFolderId?: string | null;
 }
 
@@ -149,6 +150,18 @@ class OjeetStudyDB extends Dexie {
                 if (playlist.customFolderId === undefined) playlist.customFolderId = null;
             });
         });
+
+        this.version(7).stores({
+            videos: 'id, playlistId, customFolderId, sortOrder, addedAt',
+            playlists: 'id, customFolderId, sortOrder',
+            customFolders: 'id, sortOrder',
+            studySessions: 'id, videoId, startTime',
+            sessionEvents: '++id, sessionId, eventType, timestamp',
+        }).upgrade(async tx => {
+            await tx.table('videos').toCollection().modify(video => {
+                if (video.lastPositionSeconds === undefined) video.lastPositionSeconds = 0;
+            });
+        });
     }
 }
 
@@ -194,6 +207,12 @@ export async function toggleVideoWatched(id: string): Promise<boolean> {
     const newVal = !video.watched;
     await db.videos.update(id, { watched: newVal });
     return newVal;
+}
+
+export async function updateVideoLastPosition(id: string, lastPositionSeconds: number): Promise<void> {
+    await db.videos.update(id, {
+        lastPositionSeconds: Math.max(0, Math.floor(lastPositionSeconds)),
+    });
 }
 
 export async function togglePlaylistWatched(id: string): Promise<boolean> {
