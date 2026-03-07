@@ -14,6 +14,13 @@ export function useAuthSession() {
             return () => undefined;
         }
 
+        // Subscribe first so we don't miss OAuth SIGNED_IN after redirect.
+        const unsubscribe = onAuthStateChange((nextUser) => {
+            if (!isMounted) return;
+            setUser(nextUser);
+            setIsLoading(false);
+        });
+
         void getCurrentUser()
             .then((currentUser) => {
                 if (!isMounted) return;
@@ -25,12 +32,6 @@ export function useAuthSession() {
             .finally(() => {
                 if (isMounted) setIsLoading(false);
             });
-
-        const unsubscribe = onAuthStateChange((nextUser) => {
-            if (!isMounted) return;
-            setUser(nextUser);
-            setIsLoading(false);
-        });
 
         return () => {
             isMounted = false;
