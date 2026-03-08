@@ -1,4 +1,4 @@
-import { getCurrentUser } from './auth';
+import { getCurrentSessionUser } from './auth';
 import { getStudySessions, getVideos } from '../db/db';
 import { getSupabaseClient } from './supabaseClient';
 import { makeVideoLogKey, mergeVideoLogs } from './videoLogMerge';
@@ -268,7 +268,7 @@ export async function flushVideoLogsNow(): Promise<FlushResult> {
         return { ok: true, reason: 'noop' };
     }
 
-    const user = await getCurrentUser();
+    const user = await getCurrentSessionUser();
     if (!user) {
         setState('queued');
         schedulePeriodicFlush();

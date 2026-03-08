@@ -72,9 +72,9 @@ export function PlaylistGroup({
         >
             {/* Playlist header — always visible */}
             <Flex
-                align="center"
-                gap={3}
-                p={3}
+                align={{ base: 'flex-start', sm: 'center' }}
+                gap={{ base: 2, sm: 3 }}
+                p={{ base: 2.5, sm: 3 }}
                 cursor="pointer"
                 _hover={{ bg: 'var(--bg-tertiary)' }}
                 transition="background 0.15s"
@@ -82,6 +82,7 @@ export function PlaylistGroup({
                 role="button"
                 aria-expanded={expanded}
                 aria-label={`${playlist.title} — ${videoCount} videos`}
+                wrap={{ base: 'wrap', sm: 'nowrap' }}
             >
                 {dragAttributes && dragListeners && (
                     <Box {...dragAttributes} {...dragListeners} cursor="grab" flexShrink={0} onClick={(e) => e.stopPropagation()}>
@@ -93,16 +94,16 @@ export function PlaylistGroup({
                     <Image
                         src={playlist.thumbnailUrl}
                         alt={playlist.title}
-                        w="120px"
-                        h="68px"
+                        w={{ base: '96px', sm: '120px' }}
+                        h={{ base: '54px', sm: '68px' }}
                         objectFit="cover"
                         borderRadius="4px"
                         flexShrink={0}
                     />
                 ) : (
                     <Flex
-                        w="120px"
-                        h="68px"
+                        w={{ base: '96px', sm: '120px' }}
+                        h={{ base: '54px', sm: '68px' }}
                         bg="var(--bg-tertiary)"
                         align="center"
                         justify="center"
@@ -135,7 +136,14 @@ export function PlaylistGroup({
                     </Text>
                 </Box>
 
-                <Flex gap={1} flexShrink={0} align="center">
+                <Flex
+                    gap={1}
+                    flexShrink={0}
+                    align="center"
+                    wrap={{ base: 'wrap', sm: 'nowrap' }}
+                    w={{ base: '100%', sm: 'auto' }}
+                    justify={{ base: 'flex-end', sm: 'flex-start' }}
+                >
                     <IconButton
                         aria-label={playlist.favorite ? 'Unpin from favorites' : 'Pin to favorites'}
                         size="sm"
@@ -213,9 +221,9 @@ export function PlaylistGroup({
                                 key={video.id}
                                 align="center"
                                 gap={3}
-                                px={4}
+                                px={{ base: 3, sm: 4 }}
                                 py={2.5}
-                                pl={10}
+                                pl={{ base: 3, sm: 10 }}
                                 cursor="pointer"
                                 opacity={video.watched ? 0.45 : 1}
                                 _hover={{ bg: 'var(--bg-tertiary)' }}
@@ -228,8 +236,8 @@ export function PlaylistGroup({
                                 <Image
                                     src={video.thumbnailUrl}
                                     alt={video.title}
-                                    w="80px"
-                                    h="45px"
+                                    w={{ base: '72px', sm: '80px' }}
+                                    h={{ base: '40px', sm: '45px' }}
                                     objectFit="cover"
                                     borderRadius="3px"
                                     flexShrink={0}
@@ -243,7 +251,7 @@ export function PlaylistGroup({
                                         {video.durationSeconds > 0 && ` · ${formatDuration(video.durationSeconds)}`}
                                     </Text>
                                 </Box>
-                                <Flex gap={1} flexShrink={0}>
+                                <Flex gap={1} flexShrink={0} wrap={{ base: 'wrap', sm: 'nowrap' }}>
                                     <IconButton
                                         aria-label={video.watched ? 'Mark as unwatched' : 'Mark as watched'}
                                         size="sm"

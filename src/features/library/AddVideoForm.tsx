@@ -53,7 +53,7 @@ export function AddVideoForm({ onAdded }: AddVideoFormProps) {
     return (
         <Box>
             <form onSubmit={(e) => void handleSubmit(e)}>
-                <Flex gap={2}>
+                <Flex gap={2} direction={{ base: 'column', sm: 'row' }}>
                     <Box position="relative" flex={1}>
                         <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" zIndex={1}>
                             <LinkIcon size={16} color="var(--text-muted)" />
@@ -84,6 +84,7 @@ export function AddVideoForm({ onAdded }: AddVideoFormProps) {
                         px={4}
                         gap={1.5}
                         fontWeight="600"
+                        w={{ base: '100%', sm: 'auto' }}
                     >
                         <Plus size={16} />
                         Add

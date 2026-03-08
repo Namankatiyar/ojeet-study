@@ -107,11 +107,11 @@ function SortableItemWrapper({
             borderWidth="1px"
             borderColor="var(--border-color)"
             bg="var(--bg-secondary)"
-            p={3}
+            p={{ base: 2.5, sm: 3 }}
             borderRadius="md"
             display="flex"
             alignItems="center"
-            gap={3}
+            gap={{ base: 2, sm: 3 }}
             // BUG 4 FIX: opacity removed from here — now handled in style above
             _hover={{ bg: 'var(--bg-tertiary)', borderColor: 'var(--border-hover)' }}
             transition="all 0.15s"
@@ -135,8 +135,8 @@ function SortableItemWrapper({
             <Image
                 src={video.thumbnailUrl}
                 alt={video.title}
-                w="120px"
-                h="68px"
+                w={{ base: '96px', sm: '120px' }}
+                h={{ base: '54px', sm: '68px' }}
                 objectFit="cover"
                 borderRadius="4px"
                 flexShrink={0}
@@ -156,7 +156,13 @@ function SortableItemWrapper({
                 )}
             </Box>
 
-            <Flex gap={1} flexShrink={0}>
+            <Flex
+                gap={1}
+                flexShrink={0}
+                wrap={{ base: 'wrap', sm: 'nowrap' }}
+                w={{ base: '72px', sm: 'auto' }}
+                justify="flex-end"
+            >
                 <IconButton
                     aria-label={video.favorite ? 'Unpin from favorites' : 'Pin to favorites'}
                     size="sm"

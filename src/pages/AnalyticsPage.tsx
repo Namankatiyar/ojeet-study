@@ -58,13 +58,19 @@ export function AnalyticsPage() {
     }, []);
 
     return (
-        <Box maxW="900px" mx="auto" py={8} px={4}>
-            <Flex align="center" justify="space-between" mb={6}>
+        <Box maxW="900px" mx="auto" py={{ base: 5, md: 8 }} px={{ base: 3, md: 4 }}>
+            <Flex
+                align={{ base: 'flex-start', md: 'center' }}
+                justify="space-between"
+                mb={6}
+                direction={{ base: 'column', md: 'row' }}
+                gap={{ base: 3, md: 0 }}
+            >
                 <Flex align="center" gap={2}>
                     <BarChart3 size={24} color="var(--text-primary)" />
                     <Heading size="lg" color="var(--text-primary)">Analytics</Heading>
                 </Flex>
-                <Flex gap={2}>
+                <Flex gap={2} w={{ base: '100%', md: 'auto' }} direction={{ base: 'column', sm: 'row' }}>
                     <Button
                         size="sm"
                         backgroundColor="var(--accent)"
@@ -80,6 +86,7 @@ export function AnalyticsPage() {
                         disabled={!isConfigured || !user}
                         px={4}
                         gap={1.5}
+                        w={{ base: '100%', sm: 'auto' }}
                     >
                         <RefreshCcw size={16} />
                         Sync to Tracker
@@ -95,6 +102,7 @@ export function AnalyticsPage() {
                         loadingText="Exporting..."
                         px={4}
                         gap={1.5}
+                        w={{ base: '100%', sm: 'auto' }}
                     >
                         <Download size={16} />
                         Export CSV
@@ -108,8 +116,8 @@ export function AnalyticsPage() {
                     borderColor="var(--border-color)"
                     borderWidth="1px"
                     borderRadius="lg"
-                    p={6}
-                    maxW="sm"
+                    p={{ base: 4, md: 6 }}
+                    maxW={{ base: 'calc(100vw - 1.5rem)', md: 'sm' }}
                 >
                     <DialogHeader pb={3}>
                         <DialogTitle>
@@ -140,20 +148,20 @@ export function AnalyticsPage() {
             </DialogRoot>
 
             {/* Stats */}
-            <Flex gap={8} mb={8}>
-                <Box>
+            <Flex gap={{ base: 3, md: 8 }} mb={8} wrap="wrap">
+                <Box minW={{ base: 'calc(50% - 0.375rem)', md: 'auto' }}>
                     <Text fontSize="2xl" fontWeight="700" color="var(--text-primary)">
                         {formatDurationHuman(stats.totalSeconds)}
                     </Text>
                     <Text fontSize="xs" color="var(--text-muted)">Total Study Time</Text>
                 </Box>
-                <Box>
+                <Box minW={{ base: 'calc(50% - 0.375rem)', md: 'auto' }}>
                     <Text fontSize="2xl" fontWeight="700" color="var(--text-primary)">
                         {stats.totalDays}
                     </Text>
                     <Text fontSize="xs" color="var(--text-muted)">Active Days</Text>
                 </Box>
-                <Box>
+                <Box minW={{ base: 'calc(50% - 0.375rem)', md: 'auto' }}>
                     <Text fontSize="2xl" fontWeight="700" color="var(--text-primary)">
                         {stats.totalSessions}
                     </Text>
@@ -187,8 +195,10 @@ export function AnalyticsPage() {
                             .map((session) => (
                                 <Flex
                                     key={session.id}
-                                    align="center"
+                                    align={{ base: 'flex-start', sm: 'center' }}
                                     justify="space-between"
+                                    direction={{ base: 'column', sm: 'row' }}
+                                    gap={{ base: 2, sm: 3 }}
                                     borderWidth="1px"
                                     borderColor="var(--border-color)"
                                     bg="var(--bg-secondary)"

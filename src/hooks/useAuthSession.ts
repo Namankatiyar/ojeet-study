@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { getCurrentUser, onAuthStateChange } from '../services/auth';
+import { getCurrentSessionUser, onAuthStateChange } from '../services/auth';
 import { hasSupabaseConfig } from '../services/supabaseClient';
+
+const AUTH_LOADING_TIMEOUT_MS = 5000;
 
 export function useAuthSession() {
     const [user, setUser] = useState<User | null>(null);
@@ -14,6 +16,10 @@ export function useAuthSession() {
             return () => undefined;
         }
 
+        const loadingTimeout = window.setTimeout(() => {
+            if (isMounted) setIsLoading(false);
+        }, AUTH_LOADING_TIMEOUT_MS);
+
         // Subscribe first so we don't miss OAuth SIGNED_IN after redirect.
         const unsubscribe = onAuthStateChange((nextUser) => {
             if (!isMounted) return;
@@ -21,13 +27,13 @@ export function useAuthSession() {
             setIsLoading(false);
         });
 
-        void getCurrentUser()
+        void getCurrentSessionUser()
             .then((currentUser) => {
                 if (!isMounted) return;
                 setUser(currentUser);
             })
             .catch((error) => {
-                console.error('Failed to load Supabase user:', error);
+                console.error('Failed to load Supabase session user:', error);
             })
             .finally(() => {
                 if (isMounted) setIsLoading(false);
@@ -35,6 +41,7 @@ export function useAuthSession() {
 
         return () => {
             isMounted = false;
+            window.clearTimeout(loadingTimeout);
             unsubscribe();
         };
     }, []);

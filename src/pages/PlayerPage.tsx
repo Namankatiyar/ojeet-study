@@ -178,14 +178,14 @@ export function PlayerPage() {
 
     if (!videoId) {
         return (
-            <Box maxW="960px" mx="auto" py={8} px={4}>
+            <Box maxW="960px" mx="auto" py={{ base: 5, md: 8 }} px={{ base: 3, md: 4 }}>
                 <Text color="var(--text-muted)">No video selected.</Text>
             </Box>
         );
     }
 
     return (
-        <Box maxW="960px" mx="auto" py={4} px={4}>
+        <Box maxW="960px" mx="auto" py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
             <Flex align="center" gap={2} mb={4}>
                 <RouterLink to="/">
                     <Flex
@@ -207,7 +207,13 @@ export function PlayerPage() {
                 onPlaybackRateChange={handlePlaybackRateChange}
             />
 
-            <Flex justify="space-between" align="center" mt={4}>
+            <Flex
+                justify="space-between"
+                align={{ base: 'flex-start', md: 'center' }}
+                mt={4}
+                direction={{ base: 'column', md: 'row' }}
+                gap={{ base: 3, md: 0 }}
+            >
                 <Box>
                     {loading ? (
                         <Text color="var(--text-muted)">Loading...</Text>
@@ -223,7 +229,7 @@ export function PlayerPage() {
                     )}
                 </Box>
 
-                <Flex align="center" gap={2}>
+                <Flex align="center" gap={2} wrap="wrap">
                     <Badge
                         bg={isActive() ? 'rgba(34,197,94,0.15)' : 'var(--bg-tertiary)'}
                         color={isActive() ? 'var(--green)' : 'var(--text-muted)'}

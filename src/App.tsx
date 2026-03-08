@@ -71,7 +71,17 @@ function NavBar() {
       borderColor="var(--border-color)"
       bg="var(--bg-secondary)"
     >
-      <Flex maxW="960px" mx="auto" px={4} h="56px" align="center" justify="space-between">
+      <Flex
+        maxW="960px"
+        mx="auto"
+        px={{ base: 3, md: 4 }}
+        py={{ base: 2, md: 0 }}
+        minH={{ base: 'auto', md: '56px' }}
+        align={{ base: 'stretch', md: 'center' }}
+        justify="space-between"
+        direction={{ base: 'column', md: 'row' }}
+        gap={{ base: 2, md: 0 }}
+      >
         <Flex align="center" gap={2}>
           <Play size={18} fill="white" color="white" />
           <Text fontWeight="700" fontSize="md" color="var(--text-primary)">
@@ -79,7 +89,13 @@ function NavBar() {
           </Text>
         </Flex>
 
-        <Flex gap={1} align="center">
+        <Flex
+          gap={1}
+          align="center"
+          w={{ base: '100%', md: 'auto' }}
+          overflowX={{ base: 'auto', md: 'visible' }}
+          pb={{ base: 1, md: 0 }}
+        >
           <IconButton
             h="32px"
             w="32px"
@@ -155,7 +171,11 @@ function NavBar() {
                   transition="all 0.15s"
                 >
                   <Icon size={16} />
-                  <Text fontSize="sm" fontWeight={isActive ? '500' : '300'}>
+                  <Text
+                    display={{ base: 'none', sm: 'block' }}
+                    fontSize="sm"
+                    fontWeight={isActive ? '500' : '300'}
+                  >
                     {label}
                   </Text>
                 </Flex>
@@ -187,8 +207,8 @@ function NavBar() {
           borderColor="var(--border-color)"
           borderWidth="1px"
           borderRadius="lg"
-          p={6}
-          maxW="md"
+          p={{ base: 4, md: 6 }}
+          maxW={{ base: 'calc(100vw - 1.5rem)', md: 'md' }}
         >
           <DialogHeader pb={3}>
             <DialogTitle>
@@ -310,8 +330,8 @@ function NavBar() {
           borderColor="var(--border-color)"
           borderWidth="1px"
           borderRadius="lg"
-          p={6}
-          maxW="sm"
+          p={{ base: 4, md: 6 }}
+          maxW={{ base: 'calc(100vw - 1.5rem)', md: 'sm' }}
         >
           <DialogHeader pb={3}>
             <DialogTitle>
@@ -355,10 +375,11 @@ function InstallBanner() {
       borderBottomWidth="1px"
       borderColor="var(--border-color)"
       px={4}
-      py={2}
+      py={{ base: 2.5, md: 2 }}
       align="center"
       justify="center"
       gap={3}
+      wrap="wrap"
     >
       <Text fontSize="sm" color="var(--text-secondary)">
         Install OJEET Study for offline access

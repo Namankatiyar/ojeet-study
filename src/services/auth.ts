@@ -27,6 +27,14 @@ export async function getCurrentUser(): Promise<User | null> {
     return data.user;
 }
 
+export async function getCurrentSessionUser(): Promise<User | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session?.user ?? null;
+}
+
 export function onAuthStateChange(
     callback: (user: User | null) => void,
 ): () => void {

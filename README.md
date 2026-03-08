@@ -8,7 +8,7 @@ A distraction-free, local-first YouTube study PWA designed for students.
 - **Local Library**: Organize your study material with support for both individual videos and full playlists.
 - **Smart Search**: Real-time search across video titles and channel names, with auto-expanding playlists.
 - **Analytics & Tracking**: High-resolution study time tracking that stays purely local to your device.
-- **Cross-App Sync**: One-click "Sync to Tracker" to share your analytics with [OJEE Tracker](https://ojeet-tracker.vercel.app).
+- **Cross-App Sync**: One-click "Sync to Tracker" to share your analytics with [OJEE Tracker](https://ojeet-tracker.vercel.app). (Requires Google Sign-In)
 - **Offline Capable**: Works as a Progressive Web App (PWA) with full dark mode support.
 
 ## 🛠️ Tech Stack

@@ -96,8 +96,8 @@ export function LibraryPage() {
     }, [filteredStandalone, filteredPlaylists, videos]);
 
     return (
-        <Box maxW="800px" mx="auto" py={8} px={4}>
-            <Flex align="center" gap={2} mb={6}>
+        <Box maxW="800px" mx="auto" py={{ base: 5, md: 8 }} px={{ base: 3, md: 4 }}>
+            <Flex align="center" gap={2} mb={5}>
                 <Library size={24} color="var(--text-primary)" />
                 <Heading size="lg" color="var(--text-primary)">Library</Heading>
             </Flex>
@@ -112,7 +112,7 @@ export function LibraryPage() {
             </Box>
 
             {/* Search bar */}
-            <Box position="relative" mb={6}>
+            <Box position="relative" mb={5}>
                 <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" zIndex={1}>
                     <Search size={16} color="var(--text-muted)" />
                 </Box>
