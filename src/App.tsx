@@ -22,6 +22,7 @@ import {
   initializeVideoLogSync,
   queueVideoLogsFromStudyHistory,
 } from './services/videoLogSync';
+import { Analytics } from '@vercel/analytics/react';
 
 function NavBar() {
   const location = useLocation();
@@ -434,6 +435,7 @@ export default function App() {
     <ChakraProvider value={defaultSystem}>
       <BrowserRouter>
         <AppContent />
+        <Analytics />
       </BrowserRouter>
     </ChakraProvider>
   );
