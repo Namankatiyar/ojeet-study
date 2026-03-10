@@ -1,7 +1,7 @@
 import { getCurrentSessionUser } from './auth';
 import { getStudySessions, getVideos } from '../db/db';
 import { getSupabaseClient } from './supabaseClient';
-import { makeVideoLogKey, mergeVideoLogs } from './videoLogMerge';
+import { makeVideoLogKey } from './videoLogMerge';
 import { isValidVideoWatchEntry, type VideoWatchEntry } from './videoLogTypes';
 
 type SyncState = 'idle' | 'queued' | 'syncing' | 'error';
@@ -18,8 +18,6 @@ export interface FlushResult {
     reason: 'synced' | 'noop' | 'no_user' | 'not_configured' | 'error';
 }
 
-const TABLE_NAME = 'user_study_aggregate';
-const COLUMN_NAME = 'video_watch_45d_json';
 const FLUSH_INTERVAL_MS = 300_000;
 const RETRY_MIN_MS = 5_000;
 const RETRY_MAX_MS = 300_000;
@@ -97,13 +95,6 @@ function removeFlushedEntries(flushed: VideoWatchEntry[]): void {
             dirtyMap.delete(key);
         }
     }
-}
-
-function normalizeRemoteLogs(raw: unknown): VideoWatchEntry[] {
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((entry): entry is VideoWatchEntry =>
-        isValidVideoWatchEntry(entry as Partial<VideoWatchEntry>),
-    );
 }
 
 function normalizeEntry(entry: VideoWatchEntry): VideoWatchEntry {
@@ -281,32 +272,11 @@ export async function flushVideoLogsNow(): Promise<FlushResult> {
     const pendingEntries = Array.from(dirtyMap.values());
 
     try {
-        const { data, error } = await supabase
-            .from(TABLE_NAME)
-            .select(COLUMN_NAME)
-            .eq('user_id', user.id)
-            .maybeSingle<{ video_watch_45d_json: unknown }>();
+        const { error } = await supabase.rpc('merge_video_logs', {
+            new_logs: pendingEntries,
+        });
 
         if (error) throw error;
-
-        const existingLogs = normalizeRemoteLogs(data?.video_watch_45d_json);
-        const mergedLogs = mergeVideoLogs(existingLogs, pendingEntries);
-
-        if (data) {
-            const { error: updateError } = await supabase
-                .from(TABLE_NAME)
-                .update({ [COLUMN_NAME]: mergedLogs })
-                .eq('user_id', user.id);
-            if (updateError) throw updateError;
-        } else {
-            const { error: insertError } = await supabase
-                .from(TABLE_NAME)
-                .insert({
-                    user_id: user.id,
-                    [COLUMN_NAME]: mergedLogs,
-                });
-            if (insertError) throw insertError;
-        }
 
         removeFlushedEntries(pendingEntries);
 
