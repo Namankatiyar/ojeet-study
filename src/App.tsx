@@ -13,6 +13,7 @@ import { Library, Play, BarChart3, Download, X, RefreshCcw, AlertCircle, Setting
 import { LibraryPage } from './pages/LibraryPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { PlaylistPage } from './pages/PlaylistPage';
 import { useAuthSession } from './hooks/useAuthSession';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useVideoLogSyncStatus } from './hooks/useVideoLogSyncStatus';
@@ -422,6 +423,7 @@ function AppContent() {
       <Box flex={1}>
         <Routes>
           <Route path="/" element={<LibraryPage />} />
+          <Route path="/playlist/:playlistId" element={<PlaylistPage />} />
           <Route path="/watch/:videoId" element={<PlayerPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
         </Routes>

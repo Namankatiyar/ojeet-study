@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link as RouterLink } from 'react-router-dom';
-import { Box, Heading, Text, Flex, Badge } from '@chakra-ui/react';
-import { ArrowLeft, Clock, FlaskConical, Atom, Pi, Tag } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Box, Heading, Text, Flex, Badge, IconButton } from '@chakra-ui/react';
+import { ArrowLeft, Clock, FlaskConical, Atom, Pi, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
     getVideoById,
     getSessionsByVideoId,
     updateVideoLastPosition,
     updateVideoTag,
+    getVideosByPlaylist,
+    getVideos,
     type Video,
     type VideoTag,
 } from '../db/db';
@@ -28,7 +30,7 @@ const TAG_COLORS: Record<string, string> = {
     physics: '#6366f1',
     chemistry: '#10b981',
     maths: '#f59e0b',
-    custom: '#8b5cf6',
+    custom: '#f65ca4',
 };
 
 const PLAYER_STATE_ENDED = 0;
@@ -37,11 +39,13 @@ const VIDEO_END_RESET_THRESHOLD_SECONDS = 2;
 
 export function PlayerPage() {
     const { videoId } = useParams<{ videoId: string }>();
+    const navigate = useNavigate();
     const [video, setVideo] = useState<Video | null>(null);
     const [loading, setLoading] = useState(true);
     const [displaySeconds, setDisplaySeconds] = useState(0);
     const [todayBaselineSeconds, setTodayBaselineSeconds] = useState(0);
     const [activeTag, setActiveTag] = useState<VideoTag>(null);
+    const [siblingVideos, setSiblingVideos] = useState<Video[]>([]);
     const playerRef = useRef<YouTubePlayer | null>(null);
     const lastSavedPositionRef = useRef(0);
 
@@ -81,6 +85,28 @@ export function PlayerPage() {
                 setActiveTag(v?.tag ?? null);
                 setTodayBaselineSeconds(Math.max(0, Math.floor(baseline)));
                 setLoading(false);
+
+                // Load sibling videos for navigation
+                if (v?.playlistId) {
+                    // Video is from a playlist - get playlist videos
+                    void getVideosByPlaylist(v.playlistId).then((playlistVideos) => {
+                        const sorted = [...playlistVideos].sort((a, b) => a.sortOrder - b.sortOrder);
+                        setSiblingVideos(sorted);
+                    });
+                } else {
+                    // Standalone video - get all standalone videos from library
+                    void getVideos().then((allVideos) => {
+                        const standalone = allVideos
+                            .filter((vid) => vid.sourceType === 'manual' || !vid.playlistId)
+                            .sort((a, b) => {
+                                // Same sorting as library: favorites first, then by sortOrder desc
+                                if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+                                if (a.watched !== b.watched) return a.watched ? 1 : -1;
+                                return b.sortOrder - a.sortOrder;
+                            });
+                        setSiblingVideos(standalone);
+                    });
+                }
             },
         );
     }, [videoId]);
@@ -176,6 +202,36 @@ export function PlayerPage() {
         };
     }, [videoId, video, activeTag, todayBaselineSeconds, getFocusedSeconds]);
 
+    // Navigation helpers
+    const currentIndex = useMemo(() => {
+        if (!videoId || siblingVideos.length === 0) return -1;
+        return siblingVideos.findIndex((v) => v.id === videoId);
+    }, [videoId, siblingVideos]);
+
+    const prevVideo = useMemo(() => {
+        if (currentIndex <= 0) return null;
+        return siblingVideos[currentIndex - 1];
+    }, [currentIndex, siblingVideos]);
+
+    const nextVideo = useMemo(() => {
+        if (currentIndex < 0 || currentIndex >= siblingVideos.length - 1) return null;
+        return siblingVideos[currentIndex + 1];
+    }, [currentIndex, siblingVideos]);
+
+    const goToPrev = useCallback(() => {
+        if (prevVideo) {
+            void saveCurrentPosition();
+            navigate(`/watch/${prevVideo.id}`);
+        }
+    }, [prevVideo, navigate, saveCurrentPosition]);
+
+    const goToNext = useCallback(() => {
+        if (nextVideo) {
+            void saveCurrentPosition();
+            navigate(`/watch/${nextVideo.id}`);
+        }
+    }, [nextVideo, navigate, saveCurrentPosition]);
+
     if (!videoId) {
         return (
             <Box maxW="960px" mx="auto" py={{ base: 5, md: 8 }} px={{ base: 3, md: 4 }}>
@@ -186,8 +242,9 @@ export function PlayerPage() {
 
     return (
         <Box maxW="960px" mx="auto" py={{ base: 3, md: 4 }} px={{ base: 3, md: 4 }}>
-            <Flex align="center" gap={2} mb={4}>
-                <RouterLink to="/">
+            {/* Top navigation bar */}
+            <Flex align="center" justify="space-between" mb={3}>
+                <RouterLink to={video?.playlistId ? `/playlist/${video.playlistId}` : '/'}>
                     <Flex
                         align="center"
                         gap={1}
@@ -195,9 +252,40 @@ export function PlayerPage() {
                         _hover={{ color: 'var(--text-primary)' }}
                     >
                         <ArrowLeft size={16} />
-                        <Text fontSize="sm">Library</Text>
+                        <Text fontSize="sm">{video?.playlistId ? 'Playlist' : 'Library'}</Text>
                     </Flex>
                 </RouterLink>
+
+                {/* Prev/Next controls */}
+                {siblingVideos.length > 1 && (
+                    <Flex align="center" gap={1}>
+                        <IconButton
+                            aria-label="Previous video"
+                            size="sm"
+                            variant="ghost"
+                            color={prevVideo ? 'var(--text-secondary)' : 'var(--text-muted)'}
+                            _hover={prevVideo ? { bg: 'var(--bg-hover)', color: 'var(--text-primary)' } : {}}
+                            disabled={!prevVideo}
+                            onClick={goToPrev}
+                        >
+                            <ChevronLeft size={20} />
+                        </IconButton>
+                        <Text fontSize="xs" color="var(--text-muted)" minW="50px" textAlign="center">
+                            {currentIndex + 1} / {siblingVideos.length}
+                        </Text>
+                        <IconButton
+                            aria-label="Next video"
+                            size="sm"
+                            variant="ghost"
+                            color={nextVideo ? 'var(--text-secondary)' : 'var(--text-muted)'}
+                            _hover={nextVideo ? { bg: 'var(--bg-hover)', color: 'var(--text-primary)' } : {}}
+                            disabled={!nextVideo}
+                            onClick={goToNext}
+                        >
+                            <ChevronRight size={20} />
+                        </IconButton>
+                    </Flex>
+                )}
             </Flex>
 
             <PlayerEmbed

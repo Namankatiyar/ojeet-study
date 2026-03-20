@@ -28,4 +28,10 @@ dist-ssr
 *.sln
 *.sw?
 GEMINI.md
+*.png
+.github
+.pnpm-store
+.dist
+.scripts
+.sql
 

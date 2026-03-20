@@ -2,13 +2,25 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Heading, Flex, Text, Input } from '@chakra-ui/react';
 import { Library, Search } from 'lucide-react';
 import { getVideos, getPlaylists, type Video, type Playlist } from '../db/db';
-import { SortableLibraryList, type LibraryItem } from '../features/library/SortableLibraryList';
+import { LibraryGrid, type LibraryGridItem } from '../features/library/LibraryGrid';
 import { AddVideoForm } from '../features/library/AddVideoForm';
+import { ClipboardAddDialog } from '../features/library/ClipboardAddDialog';
+import { useClipboardYouTubeDetection } from '../hooks/useClipboardYouTubeDetection';
+import { addVideoByUrl, importPlaylist } from '../services/youtube';
 
 export function LibraryPage() {
     const [videos, setVideos] = useState<Video[]>([]);
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAddingFromClipboard, setIsAddingFromClipboard] = useState(false);
+
+    // Clipboard detection hook
+    const {
+        detectedContent,
+        isLoading: isClipboardLoading,
+        error: clipboardError,
+        dismiss: dismissClipboard,
+    } = useClipboardYouTubeDetection();
 
     const loadData = useCallback(async () => {
         const [allVideos, allPlaylists] = await Promise.all([
@@ -22,6 +34,26 @@ export function LibraryPage() {
     useEffect(() => {
         void loadData();
     }, [loadData]);
+
+    // Handle adding content from clipboard
+    const handleClipboardAdd = useCallback(async () => {
+        if (!detectedContent) return;
+
+        setIsAddingFromClipboard(true);
+        try {
+            if (detectedContent.type === 'video') {
+                await addVideoByUrl(detectedContent.url);
+            } else {
+                await importPlaylist(detectedContent.url);
+            }
+            dismissClipboard();
+            void loadData();
+        } catch (err) {
+            console.error('Failed to add from clipboard:', err);
+        } finally {
+            setIsAddingFromClipboard(false);
+        }
+    }, [detectedContent, dismissClipboard, loadData]);
 
     const query = searchQuery.toLowerCase().trim();
 
@@ -67,21 +99,20 @@ export function LibraryPage() {
     // Merge standalone videos and playlists into a single ordered list
     // Favorites pinned to top, then newest first (descending sortOrder)
     const orderedItems = useMemo(() => {
-        const items: LibraryItem[] = [];
+        const items: LibraryGridItem[] = [];
         for (const v of filteredStandalone) {
-            items.push({ type: 'video', data: v, sortOrder: v.sortOrder });
+            items.push({ type: 'video', data: v });
         }
         for (const p of filteredPlaylists) {
             items.push({
                 type: 'playlist',
                 data: p,
-                sortOrder: p.sortOrder,
-                playlistVideos: videos.filter((v) => v.playlistId === p.id)
+                videos: videos.filter((v) => v.playlistId === p.id)
             });
         }
         items.sort((a, b) => {
             // Tier: 0 = watched (bottom), 1 = normal, 2 = favorite (top)
-            const tier = (item: LibraryItem) => {
+            const tier = (item: LibraryGridItem) => {
                 if (item.data.watched) return 0;
                 if (item.data.favorite) return 2;
                 return 1;
@@ -90,56 +121,69 @@ export function LibraryPage() {
             const bTier = tier(b);
             if (aTier !== bTier) return bTier - aTier;
             // Within same tier, newest first (higher sortOrder = newer)
-            return b.sortOrder - a.sortOrder;
+            return b.data.sortOrder - a.data.sortOrder;
         });
         return items;
     }, [filteredStandalone, filteredPlaylists, videos]);
 
     return (
-        <Box maxW="800px" mx="auto" py={{ base: 5, md: 8 }} px={{ base: 3, md: 4 }}>
-            <Flex align="center" gap={2} mb={5}>
-                <Library size={24} color="var(--text-primary)" />
-                <Heading size="lg" color="var(--text-primary)">Library</Heading>
+        <Box w="100%" py={{ base: 5, md: 8 }} px={{ base: 3, md: 6 }}>
+            {/* Header section - centered */}
+            <Flex direction="column" align="center" mb={6}>
+                <Flex align="center" gap={2} mb={3}>
+                    <Library size={24} color="var(--text-primary)" />
+                    <Heading size="lg" color="var(--text-primary)">Library</Heading>
+                </Flex>
+
+                <Text color="var(--text-secondary)" fontSize="sm" mb={4} textAlign="center">
+                    Add YouTube videos or playlists to study without distractions.
+                </Text>
+
+                {/* Add URL form */}
+                <Box mb={4} w="100%" maxW="600px">
+                    <AddVideoForm onAdded={() => void loadData()} />
+                </Box>
+
+                {/* Search bar */}
+                <Box position="relative" w="100%" maxW="600px">
+                    <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" zIndex={1}>
+                        <Search size={16} color="var(--text-muted)" />
+                    </Box>
+                    <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search videos by title or channel..."
+                        pl={10}
+                        size="md"
+                        bg="var(--bg-secondary)"
+                        borderColor="var(--border-color)"
+                        color="var(--text-primary)"
+                        _placeholder={{ color: 'var(--text-muted)' }}
+                        _focus={{ borderColor: 'var(--text-secondary)', boxShadow: '0 0 0 1px var(--text-secondary)' }}
+                        _hover={{ borderColor: 'var(--border-hover)' }}
+                        borderRadius="md"
+                    />
+                </Box>
             </Flex>
 
-            <Text color="var(--text-secondary)" fontSize="sm" mb={4}>
-                Add YouTube videos or playlists to study without distractions.
-            </Text>
-
-            {/* Add URL form */}
-            <Box mb={4}>
-                <AddVideoForm onAdded={() => void loadData()} />
-            </Box>
-
-            {/* Search bar */}
-            <Box position="relative" mb={5}>
-                <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" zIndex={1}>
-                    <Search size={16} color="var(--text-muted)" />
-                </Box>
-                <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search videos by title or channel..."
-                    pl={10}
-                    size="sm"
-                    bg="var(--bg-secondary)"
-                    borderColor="var(--border-color)"
-                    color="var(--text-primary)"
-                    _placeholder={{ color: 'var(--text-muted)' }}
-                    _focus={{ borderColor: 'var(--text-secondary)', boxShadow: '0 0 0 1px var(--text-secondary)' }}
-                    _hover={{ borderColor: 'var(--border-hover)' }}
-                    borderRadius="md"
-                />
-            </Box>
-
-            {/* Unified sortable Library list */}
-            <Box mt={2} mb={6}>
-                <SortableLibraryList
+            {/* Grid layout - centered container */}
+            <Box maxW="1200px" mx="auto">
+                <LibraryGrid
                     items={orderedItems}
                     searchQuery={query}
                     onUpdate={() => void loadData()}
                 />
             </Box>
+
+            {/* Clipboard detection dialog */}
+            <ClipboardAddDialog
+                content={detectedContent}
+                isLoading={isClipboardLoading}
+                error={clipboardError}
+                onConfirm={handleClipboardAdd}
+                onDismiss={dismissClipboard}
+                isAdding={isAddingFromClipboard}
+            />
         </Box>
     );
 }
