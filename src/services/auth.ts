@@ -7,7 +7,7 @@ export async function signInWithGoogle(): Promise<void> {
 
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: 'https://ojeet-study.vercel.app' },
+        options: { redirectTo: 'https://study.ojeet.tech' },
     });
     if (error) throw error;
 }
